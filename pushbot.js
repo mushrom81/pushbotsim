@@ -15,8 +15,7 @@ function cos(angle) {
 
 function f(x) {
     if (x < 0) return -1;
-    if (x > 0) return 1;
-    return 0;
+    return 1;
 }
 
 Array.min = function(array) {
@@ -66,22 +65,24 @@ function intersect(pt1, pt2) {
 }
 
 class Bot {
-    constructor(x, y, r, field, network) {
+    constructor(x, y, r, field) {
         this._x = x;
         this._y = y;
         this._r = r;
         this._field = field;
-        this._network = network;
         this._fitness = 0;
         this._turn = 0;
+        this._collisions = 0;
+        this._lastMove = [0, 0];
     }
 
+    get lastMove() { return this._lastMove; }
     get x() { return this._x; }
     get y() { return this._y; }
     get r() { return this._r; }
-    get network() { return this._network; }
     get fitness() { return this._fitness; }
     set fitness(value) { this._fitness = value; }
+    get collisions() { return this._collisions; }
     get lines() {
         var ptA = [this._x + cos(this._r + 45) * 10 * Math.SQRT2, this.y + sin(this._r + 45) * 10 * Math.SQRT2];
         var ptB = [this._x + cos(this._r + 135) * 10 * Math.SQRT2, this.y + sin(this._r + 135) * 10 * Math.SQRT2];
@@ -96,34 +97,32 @@ class Bot {
     }
     get see() {
         var fieldLines = this._field.lines;
-        var eye1Line = [[this._x, this._y], [this._x + cos(this._r) * 400, this._y + sin(this._r) * 400]];
-        var eye2Line = [[this._x, this._y], [this._x + cos(this._r + 60) * 400, this._y + sin(this._r + 60) * 400]];
-        var eye3Line = [[this._x, this._y], [this._x + cos(this._r - 60) * 400, this._y + sin(this._r- 60) * 400]];
-        var eye1Intersections = [];
-        var eye2Intersections = [];
-        var eye3Intersections = [];
+        var eyeLines = [];
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r + 15) * 800, this._y + sin(this._r + 15) * 800]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r - 15) * 800, this._y + sin(this._r - 15) * 800]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r + 60) * 800, this._y + sin(this._r + 60) * 800]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r - 60) * 800, this._y + sin(this._r- 60) * 800]]);
+        var eyeIntersections = [];
+        for (var i = 0; i < eyeLines.length; i++) { eyeIntersections.push([]); }
         for (var i = 0; i < fieldLines.length; i++) {
-            if (intersect(fieldLines[i], eye1Line) !== false) {
-                eye1Intersections.push(intersect(fieldLines[i], eye1Line));
-            }
-            if (intersect(fieldLines[i], eye2Line) !== false) {
-                eye2Intersections.push(intersect(fieldLines[i], eye2Line));
-            }
-            if (intersect(fieldLines[i], eye3Line) !== false) {
-                eye3Intersections.push(intersect(fieldLines[i], eye3Line));
+            for (var j = 0; j < eyeLines.length; j++) {
+                if (intersect(fieldLines[i], eyeLines[j]) !== false) {
+                    eyeIntersections[j].push(intersect(fieldLines[i], eyeLines[j]));
+                }
             }
         }
-        var eye1Distance = Array.min(eye1Intersections.map(x => Math.sqrt((x[0] - this._x) ** 2 + (x[1] - this._y) ** 2)));
-        var eye2Distance = Array.min(eye2Intersections.map(x => Math.sqrt((x[0] - this._x) ** 2 + (x[1] - this._y) ** 2)));
-        var eye3Distance = Array.min(eye3Intersections.map(x => Math.sqrt((x[0] - this._x) ** 2 + (x[1] - this._y) ** 2)));
-        return [eye1Distance, eye2Distance, eye3Distance];
+        var eyeDistances = [];
+        for (var i = 0; i < eyeIntersections.length; i++) {
+            eyeDistances[i] = Array.min(eyeIntersections[i].map(x => Math.sqrt((x[0] - this._x) ** 2 + (x[1] - this._y) ** 2)));
+        }
+        return eyeDistances;
     }
 
     setCoords(x, y, r) {
         this._x = x;
         this._y = y;
         this._r = r;
-        this._turn = 0;
+        this._collisions = 0;
     }
 
     collision() {
@@ -138,12 +137,11 @@ class Bot {
     }
 
     rotate(angle) {
-        this._turn += f(angle);
         this._r += angle;
         if (this._r < 0) this._r += 360;
         if (this._r >= 360) this._r -= 360;
         if (this.collision()) {
-            this._fitness = 0;
+            this._collisions++;
             this._r -= angle;
             if (this._r < 0) this._r += 360;
             if (this._r >= 360) this._r -= 360;
@@ -154,7 +152,7 @@ class Bot {
         this._x += cos(this._r) * step;
         this._y += sin(this._r) * step;       
         if (this.collision()) {
-            this._fitness = 0;
+            this._collisions++;
             this._x -= cos(this._r) * step;
             if (this.collision()) {
                 this._x += cos(this._r) * step;
@@ -176,11 +174,31 @@ class Bot {
     }
 
     think() {
-        this._network.createInputLayer(this.see);
-        this._network.runNetwork();
-        if (this._network.outputs[0] > 0) this.move(1.5);
-        if (this._network.outputs[1] > 0) this.rotate(-2);
-        if (this._network.outputs[2] > 0) this.rotate(2);
+        var sight = {
+            fr: this.see[0],
+            fl: this.see[1],
+            r: this.see[2],
+            l: this.see[3],
+        }
+        var move = [0, 0];
+        if (sight.fr < 60 || sight.fl < 60) {
+            var dir = sight.r - sight.l;
+            move[1] = f(dir);
+        }
+        if (sight.r < 30 || sight.l < 30) {
+            var dir = sight.r - sight.l;
+            move[1] = f(dir);
+        }
+        if (sight.fr < 30 || sight.fl < 30) {
+            var dir = sight.r - sight.l;
+            move[1] = f(dir);
+            move[0] = 0;
+        }
+        else move[0] = 1;
+        if (move[0] == 0 && -this._lastMove[1] == move[1]) move[1] = -move[1];
+        if (move[0] == 1) this.move(1.5);
+        this.rotate(move[1] * 2);
+        this._lastMove = move.slice();
     }
 
     render() {
@@ -188,15 +206,19 @@ class Bot {
         drawRotatedRect(this._x - 10, this._y - 10, 20, 20, this._r);
         ctx.strokeStyle = "blue";
         ctx.beginPath();
-        ctx.arc(this._x + cos(this._r) * this.see[0], this.y + sin(this._r) * this.see[0], 5, 0, 2 * Math.PI);
+        ctx.arc(this._x + cos(this._r + 15) * this.see[0], this.y + sin(this._r + 15) * this.see[0], 5, 0, 2 * Math.PI);
         ctx.stroke();
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(this._x + cos(this._r + 60) * this.see[1], this.y + sin(this._r + 60) * this.see[1], 5, 0, 2 * Math.PI);
+        ctx.arc(this._x + cos(this._r - 15) * this.see[1], this.y + sin(this._r - 15) * this.see[1], 5, 0, 2 * Math.PI);
         ctx.stroke();
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(this._x + cos(this._r - 60) * this.see[2], this.y + sin(this._r - 60) * this.see[2], 5, 0, 2 * Math.PI);
+        ctx.arc(this._x + cos(this._r + 60) * this.see[2], this.y + sin(this._r + 60) * this.see[2], 5, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(this._x + cos(this._r - 60) * this.see[3], this.y + sin(this._r - 60) * this.see[3], 5, 0, 2 * Math.PI);
         ctx.stroke();
         ctx.fill();
         ctx.beginPath();
@@ -214,6 +236,7 @@ class Field {
     }
 
     get terrain() { return this._terrain; }
+    get width() { return this._width; }
     get lines() {
         var lineArray = [];
         for (var i = 0; i < this._terrain.length; i++) {
@@ -242,14 +265,17 @@ class Field {
             if (this._terrain[i] == 1) drawRotatedRect(x * 20, y * 20, 20, 20);
         }
     }
+    
+    toggleSquare(i) {
+        if (this._terrain[i] == 1) this._terrain[i] = 0;
+        else this._terrain[i] = 1;
+    }
 }
 
 var field = new Field([
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,1,
-    1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
@@ -258,26 +284,34 @@ var field = new Field([
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 ], 20);
 
-var network = new Network([3, 4, 3]);
-//               0,60,-60
-network.addNode([1, 0, 0], 1, 50); // Approaching wall
-network.addNode([0, -1, 1], 1, 0); // Left is best option
-network.addNode([0, 1, -1], 1, 0); // Right is best option
-network.addNode([-1, 0, 0], 1, 30); // About to crash
-network.addNode([0, 0, 0, -1], 2, 1); // Move foreward
-network.addNode([1, 1, 0, 2], 2, -1); // Turn left
-network.addNode([1, 0, 1, -1], 2, -1); // Turn right
+function getMousePos(canvas, evt) {
+    var rect = canvas.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top
+    };
+}
 
-var bot = new Bot(200, 200, 270, field, network);
+c.addEventListener("click", function(evt) {
+    mousePos = getMousePos(c, evt);
+    var x = Math.floor(mousePos.x / 20);
+    var y = Math.floor(mousePos.y / 20);
+    var i = y * field.width + x;
+    field.toggleSquare(i);
+});
+
+var bot = new Bot(200, 200, 270, field);
 
 var i = 0;
 function loop() {
@@ -289,8 +323,9 @@ function loop() {
     if (keys['d']) bot.rotate(2);
     if (keys['w']) bot.move(1.5);
     if (keys['s']) bot.move(-1.5);
+    if (keys['r']) bot.setCoords(200, 200, 270);
     bot.think();
-    document.getElementById("fitness").innerHTML = i.toString() + " " + bot.fitness.toString() + " " + Math.floor(bot.see[0]) + " " + Math.floor(bot.see[1]) + " " + Math.floor(bot.see[2]);
+    document.getElementById("fitness").innerHTML = i.toString() + " " + bot.collisions + " " + Math.floor(bot.see[0]) + " " + Math.floor(bot.see[1]) + " " + Math.floor(bot.see[2]) + " " + ['o', '^'][bot.lastMove[0]] + " " + ['<', '|', '>'][bot.lastMove[1] + 1];
     i++;
 }
 loop();
