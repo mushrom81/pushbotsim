@@ -28,6 +28,8 @@ onkeydown = onkeyup = function(e){
     keys[e.key] = (e.type == "keydown");
 }
 
+const size = 10;
+
 function drawRotatedRect(x, y, width, height, degrees = 0) {
     ctx.save();
     ctx.beginPath();
@@ -84,10 +86,10 @@ class Bot {
     set fitness(value) { this._fitness = value; }
     get collisions() { return this._collisions; }
     get lines() {
-        var ptA = [this._x + cos(this._r + 45) * 10 * Math.SQRT2, this.y + sin(this._r + 45) * 10 * Math.SQRT2];
-        var ptB = [this._x + cos(this._r + 135) * 10 * Math.SQRT2, this.y + sin(this._r + 135) * 10 * Math.SQRT2];
-        var ptC = [this._x + cos(this._r + 225) * 10 * Math.SQRT2, this.y + sin(this._r + 225) * 10 * Math.SQRT2];
-        var ptD = [this._x + cos(this._r + 315) * 10 * Math.SQRT2, this.y + sin(this._r + 315) * 10 * Math.SQRT2];
+        var ptA = [this._x + cos(this._r + 45) * size / 2 * Math.SQRT2, this.y + sin(this._r + 45) * size / 2 * Math.SQRT2];
+        var ptB = [this._x + cos(this._r + 135) * size / 2 * Math.SQRT2, this.y + sin(this._r + 135) * size / 2 * Math.SQRT2];
+        var ptC = [this._x + cos(this._r + 225) * size / 2 * Math.SQRT2, this.y + sin(this._r + 225) * size / 2 * Math.SQRT2];
+        var ptD = [this._x + cos(this._r + 315) * size / 2 * Math.SQRT2, this.y + sin(this._r + 315) * size / 2 * Math.SQRT2];
         return [
             [ptA, ptB],
             [ptB, ptC],
@@ -98,10 +100,10 @@ class Bot {
     get see() {
         var fieldLines = this._field.lines;
         var eyeLines = [];
-        eyeLines.push([[this._x, this._y], [this._x + cos(this._r + 15) * 800, this._y + sin(this._r + 15) * 800]]);
-        eyeLines.push([[this._x, this._y], [this._x + cos(this._r - 15) * 800, this._y + sin(this._r - 15) * 800]]);
-        eyeLines.push([[this._x, this._y], [this._x + cos(this._r + 60) * 800, this._y + sin(this._r + 60) * 800]]);
-        eyeLines.push([[this._x, this._y], [this._x + cos(this._r - 60) * 800, this._y + sin(this._r- 60) * 800]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r + 15) * (this._field.width ** 2) * 2, this._y + sin(this._r + 15) * (this._field.width ** 2) * 2]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r - 15) * (this._field.width ** 2) * 2, this._y + sin(this._r - 15) * (this._field.width ** 2) * 2]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r + 60) * (this._field.width ** 2) * 2, this._y + sin(this._r + 60) * (this._field.width ** 2) * 2]]);
+        eyeLines.push([[this._x, this._y], [this._x + cos(this._r - 60) * (this._field.width ** 2) * 2, this._y + sin(this._r- 60) * (this._field.width ** 2) * 2]]);
         var eyeIntersections = [];
         for (var i = 0; i < eyeLines.length; i++) { eyeIntersections.push([]); }
         for (var i = 0; i < fieldLines.length; i++) {
@@ -149,6 +151,7 @@ class Bot {
     }
 
     move(step) {
+        step = step * size / 20;
         this._x += cos(this._r) * step;
         this._y += sin(this._r) * step;       
         if (this.collision()) {
@@ -181,15 +184,15 @@ class Bot {
             l: this.see[3],
         }
         var move = [0, 0];
-        if (sight.fr < 60 || sight.fl < 60) {
+        if (sight.fr < 3 * size || sight.fl < 3 * size) {
             var dir = sight.r - sight.l;
             move[1] = f(dir);
         }
-        if (sight.r < 30 || sight.l < 30) {
+        if (sight.r < 1.5 * size || sight.l < 1.5 * size) {
             var dir = sight.r - sight.l;
             move[1] = f(dir);
         }
-        if (sight.fr < 30 || sight.fl < 30) {
+        if (sight.fr < 1.5 * size || sight.fl < 1.5 * size) {
             var dir = sight.r - sight.l;
             move[1] = f(dir);
             move[0] = 0;
@@ -203,7 +206,7 @@ class Bot {
 
     render() {
         ctx.fillStyle = "blue";
-        drawRotatedRect(this._x - 10, this._y - 10, 20, 20, this._r);
+        drawRotatedRect(this._x - size / 2, this._y - size / 2, size, size, this._r);
         ctx.strokeStyle = "blue";
         ctx.beginPath();
         ctx.arc(this._x + cos(this._r + 15) * this.see[0], this.y + sin(this._r + 15) * this.see[0], 5, 0, 2 * Math.PI);
@@ -224,7 +227,7 @@ class Bot {
         ctx.beginPath();
         ctx.strokeStyle = "black";
         ctx.moveTo(this._x, this._y);
-        ctx.lineTo(this._x + cos(this._r) * 10, this.y + sin(this._r) * 10);
+        ctx.lineTo(this._x + cos(this._r) * size / 2, this.y + sin(this._r) * size / 2);
         ctx.stroke();
     }
 }
@@ -243,10 +246,10 @@ class Field {
             var x = i % this._width;
             var y = (i - x) / this._width;
             if (this._terrain[i] == 1) {
-                var ptA = [x * 20, y * 20];
-                var ptB = [x * 20 + 20, y * 20];
-                var ptC = [x * 20 + 20, y * 20 + 20];
-                var ptD = [x * 20, y * 20 + 20];
+                var ptA = [x * size, y * size];
+                var ptB = [x * size + size, y * size];
+                var ptC = [x * size + size, y * size + size];
+                var ptD = [x * size, y * size + size];
                 lineArray.push([ptA, ptB]);
                 lineArray.push([ptB, ptC]);
                 lineArray.push([ptC, ptD]);
@@ -257,12 +260,11 @@ class Field {
     }
 
     render() {
-        var fieldLines = this.lines;
         ctx.fillStyle = "black";
         for (var i = 0; i < this._terrain.length; i++) {
             var x = i % this._width;
             var y = (i - x) / this._width;
-            if (this._terrain[i] == 1) drawRotatedRect(x * 20, y * 20, 20, 20);
+            if (this._terrain[i] == 1) drawRotatedRect(x * size, y * size, size, size);
         }
     }
     
@@ -273,27 +275,47 @@ class Field {
 }
 
 var field = new Field([
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-], 20);
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+], 40);
 
 function getMousePos(canvas, evt) {
     var rect = canvas.getBoundingClientRect();
@@ -305,13 +327,13 @@ function getMousePos(canvas, evt) {
 
 c.addEventListener("click", function(evt) {
     mousePos = getMousePos(c, evt);
-    var x = Math.floor(mousePos.x / 20);
-    var y = Math.floor(mousePos.y / 20);
+    var x = Math.floor(mousePos.x / size);
+    var y = Math.floor(mousePos.y / size);
     var i = y * field.width + x;
     field.toggleSquare(i);
 });
 
-var bot = new Bot(200, 200, 270, field);
+var bot = new Bot(field.width * size / 2, field.width * size / 2, 270, field);
 
 var i = 0;
 function loop() {
@@ -319,13 +341,12 @@ function loop() {
     ctx.clearRect(0, 0, c.width, c.height);
     field.render();
     bot.render();
-    if (keys['a']) bot.rotate(-2);
-    if (keys['d']) bot.rotate(2);
-    if (keys['w']) bot.move(1.5);
-    if (keys['s']) bot.move(-1.5);
-    if (keys['r']) bot.setCoords(200, 200, 270);
+    if (keys['r']) { 
+        bot.setCoords(field.width * size / 2, field.width * size / 2, 270);
+        i = 0;
+    }
     bot.think();
-    document.getElementById("fitness").innerHTML = i.toString() + " " + bot.collisions + " " + Math.floor(bot.see[0]) + " " + Math.floor(bot.see[1]) + " " + Math.floor(bot.see[2]) + " " + ['o', '^'][bot.lastMove[0]] + " " + ['<', '|', '>'][bot.lastMove[1] + 1];
+    document.getElementById("fitness").innerHTML = i.toString() + " " + bot.collisions + " " + Math.floor(bot.see[0]) + " " + Math.floor(bot.see[1]) + " " + Math.floor(bot.see[2]) + " " + Math.floor(bot.see[3]) + " " + ['o', '^'][bot.lastMove[0]] + " " + ['<', '|', '>'][bot.lastMove[1] + 1];
     i++;
 }
 loop();
